@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Github comment badges
 // @namespace    https://github.com/matthizou
-// @version      1.0
+// @version      1.0.1
 // @description  Add badges to comment icons in PR list. Periodically and transparently refreshes those badges
 // @author       Matt
 // @match        https://github.com/*
@@ -16,7 +16,7 @@
   'use strict'
   console.log('Starting extension: Github comment Badges')
 
-  // Polling interval (in ms). Change this value to poll the server more often
+  // Change this value to poll more often
   const REFRESH_INTERVAL_PERIOD = 120000
 
   // -------------------
@@ -115,11 +115,11 @@
         } else if (displayedMessageCount === 0) {
           // We need to add the icon
           container.innerHTML = `
-                            <a href="/facebook/react/pull/14301" class="muted-link" aria-label="${messageCount} comments" style="position: relative;">
-                              <svg class="octicon octicon-comment v-align-middle" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M14 1H2c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h2v3.5L7.5 11H14c.55 0 1-.45 1-1V2c0-.55-.45-1-1-1zm0 9H7l-2 2v-2H2V2h12v8z"></path></svg><i data-id="unread-notification" style="position: absolute; z-index: 2; border-radius: 50%; color: rgb(255, 255, 255); width: 8px; height: 8px; top: 0px; left: 9px; border-width: 0px; background-image: linear-gradient(rgb(187, 187, 187), rgb(204, 204, 204));"></i>
-                              <span class="text-small text-bold">${messageCount}</span>
-                            </a>
-                        `
+                              <a href="/facebook/react/pull/14301" class="muted-link" aria-label="${messageCount} comments" style="position: relative;">
+                                <svg class="octicon octicon-comment v-align-middle" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M14 1H2c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h2v3.5L7.5 11H14c.55 0 1-.45 1-1V2c0-.55-.45-1-1-1zm0 9H7l-2 2v-2H2V2h12v8z"></path></svg><i data-id="unread-notification" style="position: absolute; z-index: 2; border-radius: 50%; color: rgb(255, 255, 255); width: 8px; height: 8px; top: 0px; left: 9px; border-width: 0px; background-image: linear-gradient(rgb(187, 187, 187), rgb(204, 204, 204));"></i>
+                                <span class="text-small text-bold">${messageCount}</span>
+                              </a>
+                          `
         } else {
           // The icon exists - simply update text
           container.querySelector('span').innerText = messageCount // WEAK
@@ -138,19 +138,23 @@
         // The user has never looked at this PR
         if (container) {
           toggleUnreadStyle(container, true)
+          toggleMessageNotificationIcon({
+            container,
+            isMuted: true,
+          })
         }
       } else if (messageCount > storedMessageCount) {
         // This PR has new messages
-        showMessageNotificationIcon({
+        toggleMessageNotificationIcon({
+          show: true,
           container,
-          hasUnread: true,
           highlight: messageCount - storedMessageCount >= 5,
         })
       } else if (messageCount > 0) {
         // This PR has no new messages
-        showMessageNotificationIcon({
+        toggleMessageNotificationIcon({
           container,
-          hasUnread: false,
+          show: false,
         })
       }
     })
@@ -225,7 +229,12 @@
     }
   }
 
-  function showMessageNotificationIcon({ container, hasUnread, highlight }) {
+  function toggleMessageNotificationIcon({
+    container,
+    highlight,
+    isMuted = false,
+    show = true,
+  }) {
     const icon = container && container.querySelector('svg')
     if (!icon) {
       return
@@ -233,31 +242,39 @@
     let notification = container.querySelector(
       '[data-id="unread-notification"]',
     )
-    if (!notification) {
-      container.style.position = 'relative'
-      notification = document.createElement('i')
-      notification.dataset.id = 'unread-notification'
-      notification.style.position = 'absolute'
-      notification.style.zIndex = 2
-      notification.style.borderRadius = '50%'
-      notification.style.color = '#fff'
-      notification.style.width = '8px'
-      notification.style.height = '8px'
-      notification.style.top = '0px'
-      notification.style.left = '9px'
-      notification.style.borderWidth = 0
 
-      insertAfter(notification, icon)
-    }
-    if (hasUnread) {
-      notification.style.backgroundImage = highlight
-        ? 'linear-gradient(#d73a49, #cb2431)' // Red/orange
-        : 'linear-gradient(#54a3ff,#006eed)' // Blue
+    if (show) {
+      if (!notification) {
+        container.style.position = 'relative'
+        // Create element for notification
+        notification = document.createElement('i')
+        notification.dataset.id = 'unread-notification'
+        notification.style.position = 'absolute'
+        notification.style.zIndex = 2
+        notification.style.borderRadius = '50%'
+        notification.style.color = '#fff'
+        notification.style.width = '8px'
+        notification.style.height = '8px'
+        notification.style.top = '0px'
+        notification.style.left = '9px'
+        notification.style.borderWidth = 0
+        // Add it to the DOM
+        insertAfter(notification, icon)
+      }
+      if (isMuted) {
+        notification.style.backgroundImage = 'linear-gradient(#CCC,#CCC)' // Grey
+      } else {
+        notification.style.backgroundImage = highlight
+          ? 'linear-gradient(#d73a49, #cb2431)' // Red/orange
+          : 'linear-gradient(#54a3ff,#006eed)' // Blue
+      }
+      //   toggleUnreadStyle(container, false)
     } else {
-      notification.style.backgroundImage = 'linear-gradient(#BBB,#CCC)' // Grey
+      // Don't show notification
+      if (notification) {
+        // Remove existing element
+      }
     }
-
-    toggleUnreadStyle(container, false)
   }
 
   /** Check page url and returns whether or not we are in a list page (pull request/issues lists )*/
