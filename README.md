@@ -20,10 +20,10 @@ It will then compare this count to the current count of comments of this PR.
 <tr>
 <td><img src="images/badges.png"/></td>
 <td><ul>
-     <li>Grey badge: No new comments since last time you checked this PR</li>
+     <li>No badge: No new comments since last time you checked this PR</li>
      <li>Blue badge: At least one new comment</li>
      <li>Red badge: A lot of new comments (5 or more)</li>
-     <li>Faded text: You have never checked this PR... do it ! ;)</li>
+     <li>Faded text with grey badge: You have never checked this PR... do it ! ;)</li>
  </td>
 </tr>
 
@@ -75,7 +75,7 @@ i.e, here for Xing I added:
 
 ## Authors
 
-- **Matthieu Izoulet**
+-   **Matthieu Izoulet**
 
 ## Acknowledgments
 

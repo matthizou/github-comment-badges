@@ -377,7 +377,7 @@
 
     /**
      * Wait for an element to appear in document. When not found, wait a bit, and tries again,
-     * until the maximum waiting time is reached
+     * until the maximum waiting time is reached.
      * @return {Promise}
      */
     function waitFor(selector, options = {}) {
