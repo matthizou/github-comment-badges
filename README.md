@@ -1,7 +1,5 @@
 # Github Comment Badges
 
-> Beware: You are going to see your colleagues' faces... even more."
-
 Github is **awesome**... and yet sometimes you wish for a cooler, more effective, UX.
 Maybe you are used to look at long lists of pull requests of your team, periodically hitting the F5 key, to see if someone added a comment to a PR you are following.
 
@@ -22,7 +20,7 @@ It will then compare this count to the current count of comments of this PR.
 <tr>
 <td><img src="images/badges.png"/></td>
 <td><ul>
-    <li>Gray badge: No new comments since last time you checked this PR</li>
+     <li>Grey badge: No new comments since last time you checked this PR</li>
      <li>Blue badge: At least one new comment</li>
      <li>Red badge: A lot of new comments (5 or more)</li>
      <li>Faded text: You have never checked this PR... do it ! ;)</li>
@@ -31,14 +29,16 @@ It will then compare this count to the current count of comments of this PR.
 
 </table>
 
-Note the script <strong>peridiocally fetches the server data and updates the page without a full page refresh </strong>! 🔥  
-You will not need to hit F5 again to be up-to-date ️️✌️
+> <i>"Get them all blue"! Gamification of the process of code reviewing by... using colorful [Smarties](https://en.wikipedia.org/wiki/Smarties)</i> 😆
+
+Note the script <strong>periodically fetches the server data and updates the page without a full page refresh </strong>! 🕒  
+You will not need to hit F5 again to be up-to-date ️️✌️ 🔥
 
 ## Getting Started
 
 ### What is a userscript ?
 
-**Userscripts** are little scripts injected in web pages to improve them. See them as addons, or extensions, (usually) scoped to pages or sites.  
+**Userscripts** are little scripts injected in web pages to improve them. See them as add-ons, or extensions, (usually) scoped to pages or sites.  
 Adding features/information, changing UI, hiding undesired ads, are typical examples of what they usually do.
 
 Userscripts can easily be converted to browser extensions, or can be run by a userscript manager.
@@ -47,12 +47,12 @@ Userscripts can easily be converted to browser extensions, or can be run by a us
 
 The application is has been tested/styled on the latest version of Chrome. (It should also work with Firefox)
 
-In order for your browser to run userscripts, you need to install a userscript manager extension. I recommand **Tampermonkey**  
+In order for your browser to run userscripts, you need to install a userscript manager extension. I recommend **Tampermonkey**  
 Install the [Tampermonkey extension](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
 
 ### Installation
 
-Go to this url: [https://github.com/matthizou/github-show-avatars/raw/master/main.user.js](https://github.com/matthizou/github-comment-badges/raw/master/github-comment-badges.user.js)  
+Go to this url: [https://github.com/matthizou/github-comment-badges/raw/master/github-comment-badges.user.js](https://github.com/matthizou/github-comment-badges/raw/master/github-comment-badges.user.js)  
 Tampermonkey will pick up the fact that you are displaying a raw userscript and will ask you if you want to install the script.  
 Read the code (if you want) and click the **install** button.
 
@@ -64,11 +64,11 @@ At the moment, this script will work with any version of Github enterprise (test
 
 Simply add a `@match` rule your domain at the beginning of the script, in the metadata block (you will need to edit it Tampermonkey)
 
-i.e, here at Xing I added:  
+i.e, here for Xing I added:  
 `// @match https://source.xing.com/*`
 
 <p style="background-color:#BBB; color:black; border-radius: 3px; padding: 6px">
-💣 &nbsp Those manual modifications of the script will be overwritten everytime the script auto-update.   
+💣 &nbsp Those manual modifications of the script will be overwritten every time the script auto-update.   
  Alternatively, you can create a new userscript in Tampermonkey and copy/paste the code there. But this method comes with issues, too: you won't benefit from the code updates, that often are cause to react to  breaking changes in the Github.<br>     
  I plan to fork it in the future the scripts for Github and Github Enterprise, and provide for a solution to the problem above.
 </p>
