@@ -9,7 +9,6 @@
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM.xmlHttpRequest
-// @grant        GM.info
 
 // ==/UserScript==
 
@@ -17,8 +16,8 @@
   'use strict'
   console.log('Starting extension: Github comment Badges')
 
-  const REFRESH_INTERVAL_PERIOD = 60000
-  let refreshIntervalId
+  // Polling interval (in ms). Change this value to poll the server more often
+  const REFRESH_INTERVAL_PERIOD = 120000
 
   // -------------------
   // MAIN LOGIC FUNCTIONS
@@ -116,11 +115,11 @@
         } else if (displayedMessageCount === 0) {
           // We need to add the icon
           container.innerHTML = `
-                          <a href="/facebook/react/pull/14301" class="muted-link" aria-label="${messageCount} comments" style="position: relative;">
-                            <svg class="octicon octicon-comment v-align-middle" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M14 1H2c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h2v3.5L7.5 11H14c.55 0 1-.45 1-1V2c0-.55-.45-1-1-1zm0 9H7l-2 2v-2H2V2h12v8z"></path></svg><i data-id="unread-notification" style="position: absolute; z-index: 2; border-radius: 50%; color: rgb(255, 255, 255); width: 8px; height: 8px; top: 0px; left: 9px; border-width: 0px; background-image: linear-gradient(rgb(187, 187, 187), rgb(204, 204, 204));"></i>
-                            <span class="text-small text-bold">${messageCount}</span>
-                          </a>
-                      `
+                            <a href="/facebook/react/pull/14301" class="muted-link" aria-label="${messageCount} comments" style="position: relative;">
+                              <svg class="octicon octicon-comment v-align-middle" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M14 1H2c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h2v3.5L7.5 11H14c.55 0 1-.45 1-1V2c0-.55-.45-1-1-1zm0 9H7l-2 2v-2H2V2h12v8z"></path></svg><i data-id="unread-notification" style="position: absolute; z-index: 2; border-radius: 50%; color: rgb(255, 255, 255); width: 8px; height: 8px; top: 0px; left: 9px; border-width: 0px; background-image: linear-gradient(rgb(187, 187, 187), rgb(204, 204, 204));"></i>
+                              <span class="text-small text-bold">${messageCount}</span>
+                            </a>
+                        `
         } else {
           // The icon exists - simply update text
           container.querySelector('span').innerText = messageCount // WEAK
@@ -189,12 +188,14 @@
     DETAILS: '#discussion_bucket',
   }
 
+  let refreshIntervalId
+
   async function applyExtension() {
     const { repoOwner, repo, section } = getInfoFromUrl()
 
     // Element that signals that we are on such or such page
     let landmarkElement
-    if (section === 'pulls') {
+    if (isListPage()) {
       landmarkElement = await waitForUnmarkedElement(selectorEnum.LIST)
       markElement(landmarkElement)
       processListPage()
@@ -315,7 +316,9 @@
   window.onpopstate = function(event) {
     if (isListPage()) {
       fetchCountData()
-      refreshIntervalId = setInterval(fetchCountData, REFRESH_INTERVAL_PERIOD)
+      if (!refreshIntervalId) {
+        refreshIntervalId = setInterval(fetchCountData, REFRESH_INTERVAL_PERIOD)
+      }
     }
   }
 
