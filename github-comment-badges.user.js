@@ -280,7 +280,7 @@
     return `${repoOwner}/${repo}`
   }
 
-  const PROCESSED_FLAG = GM.info.script.uuid
+  const PROCESSED_FLAG = 'comment_badges_extension_flag'
 
   function markElement(element) {
     element.dataset[PROCESSED_FLAG] = true
