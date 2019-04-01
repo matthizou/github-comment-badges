@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Github comment badges
 // @namespace    https://github.com/matthizou
-// @version      1.1
+// @version      1.2
 // @description  Add badges to comment icons in PR list. Periodically and transparently refreshes those badges
 // @author       Matt
 // @match        https://github.com/*
@@ -18,13 +18,14 @@
 
     // Change this value to poll more often
     const REFRESH_INTERVAL_PERIOD = 90000
+    const REFRESH_INTERVAL_PERIOD_FOR_DETAILS_PAGE = 30000
 
     // -------------------
     // MAIN LOGIC FUNCTIONS
     // -------------------
 
     /** Fetch counts info from the server and update the list page */
-    function fetchCountData() {
+    function fetchCountDataForTheListPage() {
         const url = window.location.href
         GM.xmlHttpRequest({
             method: 'GET',
@@ -32,6 +33,21 @@
             onload: response => {
                 const newCountData = parseListPageHTML(response.responseText)
                 processListPage(newCountData)
+            },
+        })
+    }
+
+    /** Fetch counts info from the server and update the list page */
+    function fetchCountDataForTheDetailsPage() {
+        const { repoOwner, repo, section, itemId } = getInfoFromUrl()
+        const url = `/${repoOwner}/${repo}/${section}/${itemId}/commits`
+        GM.xmlHttpRequest({
+            method: 'GET',
+            url,
+            onload: response => {
+                const newCountData = parseDetailsPageHTML(response.responseText)
+                console.log(newCountData)
+                processDetailsPage(newCountData)
             },
         })
     }
@@ -73,6 +89,17 @@
         }
 
         return results
+    }
+
+    function parseDetailsPageHTML(pageHtml) {
+        try {
+            const regex = /id="conversation_tab_counter[^<]*/
+            const match = regex.exec(pageHtml)
+            const strCount = match[0].replace(/\s/g, '').replace(/.*>/, '')
+            return parseInt(parseInt(strCount, 10))
+        } catch (ex) {
+            return null
+        }
     }
 
     /**
@@ -168,21 +195,25 @@
      * Processing function for the detail pages.
      * Looks for the count number and stores it
      */
-    async function processDetailsPage() {
+    async function processDetailsPage(counter) {
         const repoData = await getRepoData()
         const { section, itemId } = getInfoFromUrl()
+        let text
+        let messageCount = counter
 
-        let text, messageCount
-
-        if (section === 'pull') {
-            text = document.querySelector('#conversation_tab_counter').innerText
-            messageCount = parseInt(text, 10)
-        } else if (section === 'issues') {
-            text = $('a.author')
-                .map(x => x.parentNode.innerText)
-                .find(text => text.indexOf('comment') > 0)
-            text = /([0-9]+) comment/.exec(text)[1]
-            messageCount = parseInt(text, 10)
+        if (messageCount === undefined || messageCount === null) {
+            // Get message count from the UI
+            if (section === 'pull') {
+                text = document.getElementById('conversation_tab_counter').innerText
+                messageCount = parseInt(text, 10)
+            } else if (section === 'issues') {
+                // ie: "matthizou opened this issue on 23 Nov 2018 · 2 comments"
+                text = $('a.author')
+                    .map(x => x.parentNode.innerText)
+                    .find(text => text.indexOf('comment') > 0)
+                text = /([0-9]+) comment/.exec(text)[1]
+                messageCount = parseInt(text, 10)
+            }
         }
 
         // Compare current number of messages in the PR to the one stored from the last visit
@@ -191,6 +222,10 @@
             const previousMessageCount = repoData[itemId]
             if (messageCount !== previousMessageCount) {
                 setRepoData({ ...repoData, [itemId]: messageCount })
+                if (section === 'pull') {
+                    document.getElementById('conversation_tab_counter').innerText = messageCount
+                }
+                // todo: update text for issues
             }
         }
     }
@@ -200,11 +235,9 @@
         DETAILS: '#discussion_bucket',
     }
 
-    let refreshIntervalId
+    let refreshIntervalId, refreshIntervalIdForPageDetails
 
     async function applyExtension() {
-        const { repoOwner, repo, section, itemId } = getInfoFromUrl()
-
         // Element that signals that we are on such or such page
         let landmarkElement
         if (isListPage()) {
@@ -212,19 +245,36 @@
             markElement(landmarkElement)
             processListPage()
             if (!refreshIntervalId) {
-                refreshIntervalId = setInterval(fetchCountData, REFRESH_INTERVAL_PERIOD)
+                refreshIntervalId = setInterval(
+                    fetchCountDataForTheListPage,
+                    REFRESH_INTERVAL_PERIOD
+                )
             }
+            clearInterval(refreshIntervalIdForPageDetails)
+            refreshIntervalIdForPageDetails = null
         } else if (isDetailsPage()) {
             landmarkElement = await waitForUnmarkedElement(selectorEnum.DETAILS, {
                 priority: 'low',
             })
             markElement(landmarkElement)
             processDetailsPage()
+
+            if (!refreshIntervalIdForPageDetails && getInfoFromUrl().section === 'pull') {
+                // todo: logic for the issue page
+                fetchCountDataForTheDetailsPage()
+                refreshIntervalIdForPageDetails = setInterval(
+                    fetchCountDataForTheDetailsPage,
+                    REFRESH_INTERVAL_PERIOD_FOR_DETAILS_PAGE
+                )
+            }
+
             clearInterval(refreshIntervalId)
             refreshIntervalId = null
         } else {
             clearInterval(refreshIntervalId)
             refreshIntervalId = null
+            clearInterval(refreshIntervalIdForPageDetails)
+            refreshIntervalIdForPageDetails = null
         }
     }
 
@@ -338,9 +388,14 @@
     // Handle browser navigation changes (previous/forward button)
     window.onpopstate = function(event) {
         if (isListPage()) {
-            fetchCountData()
+            fetchCountDataForTheListPage()
+            clearInterval(refreshIntervalIdForPageDetails)
+            refreshIntervalIdForPageDetails = null
             if (!refreshIntervalId) {
-                refreshIntervalId = setInterval(fetchCountData, REFRESH_INTERVAL_PERIOD)
+                refreshIntervalId = setInterval(
+                    fetchCountDataForTheListPage,
+                    REFRESH_INTERVAL_PERIOD
+                )
             }
         }
     }
