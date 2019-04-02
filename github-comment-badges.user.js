@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Github comment badges
 // @namespace    https://github.com/matthizou
-// @version      1.2
+// @version      1.2.1
 // @description  Add badges to comment icons in PR list. Periodically and transparently refreshes those badges
 // @author       Matt
 // @match        https://github.com/*
@@ -18,7 +18,7 @@
 
     // Change this value to poll more often
     const REFRESH_INTERVAL_PERIOD = 90000
-    const REFRESH_INTERVAL_PERIOD_FOR_DETAILS_PAGE = 30000
+    const REFRESH_INTERVAL_PERIOD_FOR_DETAILS_PAGE = 60000
 
     // -------------------
     // MAIN LOGIC FUNCTIONS
@@ -46,7 +46,6 @@
             url,
             onload: response => {
                 const newCountData = parseDetailsPageHTML(response.responseText)
-                console.log(newCountData)
                 processDetailsPage(newCountData)
             },
         })
@@ -139,7 +138,7 @@
                 } else if (displayedMessageCount === 0) {
                     // We need to add the icon
                     container.innerHTML = `
-<a href="/facebook/react/pull/14301" class="muted-link" aria-label="${messageCount} comments" style="position: relative;">
+<a href="#" class="muted-link" aria-label="${messageCount} comments" style="position: relative;">
 <svg class="octicon octicon-comment v-align-middle" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M14 1H2c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h2v3.5L7.5 11H14c.55 0 1-.45 1-1V2c0-.55-.45-1-1-1zm0 9H7l-2 2v-2H2V2h12v8z"></path></svg><i data-id="unread-notification" style="position: absolute; z-index: 2; border-radius: 50%; color: rgb(255, 255, 255); width: 8px; height: 8px; top: 0px; left: 9px; border-width: 0px; background-image: linear-gradient(rgb(187, 187, 187), rgb(204, 204, 204));"></i>
 <span class="text-small text-bold">${messageCount}</span>
 </a>
@@ -216,6 +215,8 @@
             }
         }
 
+        // console.log(`processDetailsPage ${messageCount}`)
+
         // Compare current number of messages in the PR to the one stored from the last visit
         // Update it if they don't match
         if (Number.isInteger(messageCount)) {
@@ -232,15 +233,20 @@
 
     const selectorEnum = {
         LIST: '#js-issues-toolbar',
-        DETAILS: '#discussion_bucket',
+        DETAILS: ['#discussion_bucket', '#files_bucket', '#commits_bucket'],
     }
 
-    let refreshIntervalId, refreshIntervalIdForPageDetails
+    let refreshIntervalId
+    let refreshIntervalIdForPageDetails
 
     async function applyExtension() {
         // Element that signals that we are on such or such page
         let landmarkElement
+
+        document.removeEventListener('keypress', onKeyPressedInDetailsPage)
+
         if (isListPage()) {
+            // LIST PAGE
             landmarkElement = await waitForUnmarkedElement(selectorEnum.LIST)
             markElement(landmarkElement)
             processListPage()
@@ -250,31 +256,49 @@
                     REFRESH_INTERVAL_PERIOD
                 )
             }
-            clearInterval(refreshIntervalIdForPageDetails)
-            refreshIntervalIdForPageDetails = null
+            clearPollers('details')
         } else if (isDetailsPage()) {
+            // DETAILS PAGE
             landmarkElement = await waitForUnmarkedElement(selectorEnum.DETAILS, {
                 priority: 'low',
             })
             markElement(landmarkElement)
+
             processDetailsPage()
-
-            if (!refreshIntervalIdForPageDetails && getInfoFromUrl().section === 'pull') {
-                // todo: logic for the issue page
-                fetchCountDataForTheDetailsPage()
-                refreshIntervalIdForPageDetails = setInterval(
-                    fetchCountDataForTheDetailsPage,
-                    REFRESH_INTERVAL_PERIOD_FOR_DETAILS_PAGE
-                )
-            }
-
-            clearInterval(refreshIntervalId)
-            refreshIntervalId = null
+            setPollerForDetailsPage()
+            document.addEventListener('keypress', onKeyPressedInDetailsPage)
+            clearPollers('list')
         } else {
-            clearInterval(refreshIntervalId)
-            refreshIntervalId = null
+            clearPollers()
+        }
+    }
+
+    function onKeyPressedInDetailsPage() {
+        document.removeEventListener('keypress', onKeyPressedInDetailsPage)
+        // Reset the poller/interval to use faster polling
+        clearPollers('details')
+        setPollerForDetailsPage(REFRESH_INTERVAL_PERIOD_FOR_DETAILS_PAGE)
+    }
+
+    /**  */
+    function setPollerForDetailsPage(intervalTime = REFRESH_INTERVAL_PERIOD) {
+        if (!refreshIntervalIdForPageDetails && getInfoFromUrl().section === 'pull') {
+            // todo: logic for the issue page
+            refreshIntervalIdForPageDetails = setInterval(
+                fetchCountDataForTheDetailsPage,
+                intervalTime
+            )
+        }
+    }
+
+    function clearPollers(type) {
+        if (!type || type === 'details') {
             clearInterval(refreshIntervalIdForPageDetails)
             refreshIntervalIdForPageDetails = null
+        }
+        if (!type || type === 'list') {
+            clearInterval(refreshIntervalId)
+            refreshIntervalId = null
         }
     }
 
@@ -300,24 +324,16 @@
                 // Create element for notification
                 notification = document.createElement('i')
                 notification.dataset.id = 'unread-notification'
-                notification.style.position = 'absolute'
-                notification.style.zIndex = 2
-                notification.style.borderRadius = '50%'
-                notification.style.color = '#fff'
-                notification.style.width = '8px'
-                notification.style.height = '8px'
-                notification.style.top = '0px'
-                notification.style.left = '9px'
-                notification.style.borderWidth = 0
+                notification.className = 'gcm-comment-badge'
                 // Add it to the DOM
                 insertAfter(notification, icon)
             }
             if (isMuted) {
-                notification.style.backgroundImage = 'linear-gradient(#CCC,#CCC)' // Grey
+                notification.className += ' gcm-comment-badge-muted'
             } else {
-                notification.style.backgroundImage = highlight
-                    ? 'linear-gradient(#d73a49, #cb2431)' // Red/orange
-                    : 'linear-gradient(#54a3ff,#006eed)' // Blue
+                notification.className += highlight
+                    ? ' gcm-comment-badge-many-comments'
+                    : ' gcm-comment-badge-some-comments'
             }
         } else {
             // Don't show notification
@@ -361,7 +377,7 @@
     }
 
     function isMarked(element) {
-        return element.dataset[PROCESSED_FLAG]
+        return element.dataset && element.dataset[PROCESSED_FLAG]
     }
 
     async function waitForUnmarkedElement(selector, options = {}) {
@@ -374,6 +390,12 @@
     // -------------------
     // STARTUP BLOCK
     // -------------------
+    addStyle(`
+.gcm-comment-badge { position: absolute; z-index: 2; border-radius: 50px; color: #fff; width: 8px; height: 8px; top: 0; left: 9px; border-width: 0 }
+.gcm-comment-badge-muted{ background-image: linear-gradient(#CCC,#CCC)}
+.gcm-comment-badge-some-comments{background-image: linear-gradient(#54a3ff,#006eed)}
+.gcm-comment-badge-many-comments{ background-image: linear-gradient(#d73a49, #cb2431)}
+`)
 
     // Process page
     applyExtension()
@@ -430,6 +452,14 @@
         referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling)
     }
 
+    /** Insert css styles in a stylesheet injected in the head of the document */
+    function addStyle(css) {
+        const style = document.createElement('style')
+        style.type = 'text/css'
+        style.innerHTML = css
+        document.getElementsByTagName('head')[0].appendChild(style)
+    }
+
     /**
      * Wait for an element to appear in document. When not found, wait a bit, and tries again,
      * until the maximum waiting time is reached.
@@ -437,8 +467,8 @@
      */
     function waitFor(selector, options = {}) {
         const { priority = 'medium', condition, maxTime = 20000 } = options
-
         let intervalPeriod
+
         switch (priority) {
             case 'low':
                 intervalPeriod = 500
@@ -456,14 +486,20 @@
 
         return new Promise((resolve, reject) => {
             const interval = setInterval(() => {
-                const element = document.querySelector(selector)
+                let element
+
+                if (Array.isArray(selector)) {
+                    element = selector.map(s => document.querySelector(s)).find(el => !!el)
+                } else {
+                    element = document.querySelector(selector)
+                }
                 if (element && (!condition || condition(element))) {
                     clearInterval(interval)
                     resolve(element)
                 } else if (++iterationCount > maxRetries) {
                     // End of cycle with failure
                     clearInterval(interval)
-                    reject("Github PR extension error: timeout, couldn't find element")
+                    reject(`Github PR extension error: timeout, couldn't find element ${selector}`)
                 }
             }, intervalPeriod)
         })
